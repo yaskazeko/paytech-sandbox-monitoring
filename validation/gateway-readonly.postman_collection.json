@@ -1,0 +1,323 @@
+{
+  "info": {
+    "name": "Payment gateway sandbox read-only validation",
+    "description": "GET-only checks of the Gateway API contract. Safe to run on a schedule: creates nothing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{api_key}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('responds within 5 s', () => pm.expect(pm.response.responseTime).to.be.below(5000));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "sample_id",
+      "value": ""
+    },
+    {
+      "key": "since",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "edge_unauthenticated_401",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/payments?limit=1",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('unauthenticated call gets 401, not 5xx or a Cloudflare block', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "auth_invalid_key_401",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/payments?limit=1",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "invalid-key-0000",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('invalid key gets 401', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "auth_balances_200",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/balances"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('our key is accepted', () => pm.response.to.have.status(200));",
+              "const b = (pm.response.json() || {}).result;",
+              "pm.test('balances are a list of currency, type, amount', () => {",
+              "  pm.expect(b).to.be.an('array').that.is.not.empty;",
+              "  b.forEach(x => pm.expect(x).to.include.keys('currency', 'type', 'amount'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "payments_list_shape",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/payments?limit=5"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('list returns 200', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json() || {};",
+              "pm.test('list has result array and hasMore flag', () => {",
+              "  pm.expect(j.result).to.be.an('array');",
+              "  pm.expect(j.hasMore).to.be.a('boolean');",
+              "});",
+              "pm.collectionVariables.set('sample_id', (j.result && j.result[0] && j.result[0].id) || '');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "payments_get_by_id",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/payments/{{sample_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('sample_id')) { pm.test('no payments to inspect', () => {}); return; }",
+              "pm.test('payment by id returns 200', () => pm.response.to.have.status(200));",
+              "const p = (pm.response.json() || {}).result || {};",
+              "pm.test('payment has id, state, type, amount, currency', () =>",
+              "  pm.expect(p).to.include.keys('id', 'state', 'paymentType', 'amount', 'currency'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "payments_operations",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/payments/{{sample_id}}/operations"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.collectionVariables.get('sample_id')) { pm.test('no payments to inspect', () => {}); return; }",
+              "pm.test('operations return 200', () => pm.response.to.have.status(200));",
+              "const ops = (pm.response.json() || {}).result;",
+              "pm.test('operations are a list with operation and paymentState', () => {",
+              "  pm.expect(ops).to.be.an('array').that.is.not.empty;",
+              "  ops.forEach(o => pm.expect(o).to.include.keys('operation', 'paymentState'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "payments_unknown_id_404",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/payments/00000000000000000000000000000000"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('unknown payment id gets 404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "payments_updated_window",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/payments?updated.gte={{since}}&limit=100"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('since', new Date(Date.now() - 3600e3).toISOString().slice(0, 19) + 'Z');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('updated.gte window query returns 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "validation_date_without_time_400",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/payments?updated.gte=2026-01-01"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('a bare date in updated.gte is rejected with 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "validation_limit_zero_400",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/payments?limit=0"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('limit=0 is rejected with 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

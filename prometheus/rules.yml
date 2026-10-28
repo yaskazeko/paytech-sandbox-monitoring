@@ -1,0 +1,64 @@
+groups:
+  - name: gateway-sandbox
+    rules:
+      - alert: GatewayApiDown
+        expr: gateway_api_up == 0
+        for: 3m
+        labels: {severity: critical}
+        annotations:
+          summary: "The gateway API does not answer 401 to an unauthenticated call (5xx or Cloudflare block)"
+
+      - alert: GatewayAuthFailing
+        expr: gateway_api_auth_ok == 0 and gateway_api_up == 1
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "API key rejected: expired key or caller IP not in the key's whitelist"
+
+      - alert: GatewayExporterDown
+        expr: up{job="gateway-sandbox"} == 0 or time() - gateway_exporter_last_refresh_timestamp_seconds > 300
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "Exporter is down or has not refreshed for 5 minutes"
+
+      - alert: GatewayPaymentsStuckInCheckout
+        expr: sum by (shop, type) (gateway_payments_stuck_checkout) > 0
+        for: 30m
+        labels: {severity: warning}
+        annotations:
+          summary: "{{ $labels.shop }}: {{ $value }} {{ $labels.type }} payments stuck in CHECKOUT"
+
+      - alert: GatewayValidationCheckFailing
+        # two consecutive runs at the default 5-minute interval
+        expr: gateway_validation_check_ok == 0
+        for: 9m
+        labels: {severity: warning}
+        annotations:
+          summary: "Integration check {{ $labels.check }} fails: the API contract or our access changed"
+
+      - alert: GatewayValidationStale
+        expr: up{job="gateway-validation"} == 0 or gateway_validation_up == 0 or time() - gateway_validation_last_run_timestamp_seconds > 900
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Validation runner is down, erroring, or has not finished a run for 15 minutes"
+
+      # Declined cascade attempts are normal; an order is lost only when every attempt failed.
+      - alert: GatewayDepositOrdersLost
+        expr: |
+          gateway_deposit_order_success_ratio < 0.5
+          and on (shop) sum by (shop) (gateway_deposit_orders{outcome=~"completed|declined"}) >= 3
+        for: 15m
+        labels: {severity: critical}
+        annotations:
+          summary: "{{ $labels.shop }}: more than half of deposit orders end declined after all cascade attempts"
+
+      - alert: GatewayTerminalDeclining
+        expr: |
+          gateway_terminal_decline_ratio > 0.8
+          and on (terminal) gateway_terminal_finished_attempts >= 3
+        for: 30m
+        labels: {severity: info}
+        annotations:
+          summary: "Terminal {{ $labels.terminal }} declines most attempts; the cascade hides it but every order pays an extra attempt"
