@@ -33,8 +33,8 @@ Below it, deposits are split into attempts and orders. Here every order is compl
 You need podman or docker, curl, a sandbox API key, and the sandbox base URL.
 
 ```bash
-git clone https://github.com/yaskazeko/gateway-sandbox-monitoring.git
-cd gateway-sandbox-monitoring
+git clone https://github.com/yaskazeko/paytech-sandbox-monitoring.git
+cd paytech-sandbox-monitoring
 GW_BASE_URL=https://sandbox.example.com ./run.sh up
 ```
 
