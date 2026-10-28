@@ -18,6 +18,16 @@ The project is a working slice of an automated integration-monitoring setup for 
 
 Things this setup already caught on the sandbox: a 40-minute outage (Cloudflare 502), the default Python User-Agent blocked by Cloudflare (403, error 1010), an API key that started failing after an IP whitelist was added, a withdrawal that never left CHECKOUT, and a first-route terminal that declines every attempt while the cascade quietly completes the orders on the second one.
 
+## Dashboard
+
+The Grafana dashboard after 30 minutes against the sandbox. The top shows whether the API is up and our key works, then latency, status codes, payments and balances:
+
+![Grafana dashboard: health, latency, payments and balances](docs/img/dashboard-overview.png)
+
+Below it, deposits are split into attempts and orders. Here every order is completed, but only after a declined attempt on the first terminal, whose decline ratio stays at 100%. The last row shows the Newman checks, all passing:
+
+![Grafana dashboard: cascade attempts vs orders and integration validation](docs/img/dashboard-cascade-validation.png)
+
 ## Run it
 
 You need podman or docker, curl, a sandbox API key, and the sandbox base URL.

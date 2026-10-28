@@ -499,9 +499,9 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "drawStyle": "bars",
-            "lineWidth": 2,
-            "fillOpacity": 10,
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 40,
             "stacking": {
               "mode": "normal"
             }
